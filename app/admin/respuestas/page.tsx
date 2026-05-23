@@ -34,7 +34,10 @@ export default function RespuestasPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/surveys`, {
       headers: { Authorization: `Bearer ${token}` },

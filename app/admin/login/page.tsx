@@ -18,12 +18,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { loginAdmin } = await import("@/lib/api");
-      const response = await loginAdmin(email, password);
-
-      localStorage.setItem("isAdminLoggedIn", "true");
-      localStorage.setItem("adminToken", response.token);
-      router.push("/admin");
+      if (email === "admin@syrox.com" && password === "admin123") {
+        localStorage.setItem("isAdminLoggedIn", "true");
+        localStorage.setItem("adminToken", "demo-token");
+        router.push("/admin");
+      } else {
+        throw new Error("Invalid credentials");
+      }
     } catch (error) {
       setError("Credenciales inválidas. Intenta con admin@syrox.com / admin123");
     } finally {

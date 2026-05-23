@@ -49,8 +49,8 @@ export function SurveyForm() {
 
     setIsLoading(true);
     try {
-      const { submitSurvey } = await import("@/lib/api");
-      await submitSurvey({
+      const { supabase } = await import("@/lib/supabase");
+      await supabase.from("surveys").insert([{
         name: formData.name,
         company: formData.company,
         industry: formData.industry,
@@ -61,7 +61,7 @@ export function SurveyForm() {
         q4_doubt: formData.q4,
         q5_improvement: formData.q5,
         comment: formData.comment,
-      });
+      }]);
       router.push("/gracias");
     } catch (error) {
       console.error("Error submitting survey:", error);

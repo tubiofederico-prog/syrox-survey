@@ -33,21 +33,24 @@ export default function RespuestasPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    const fetchSurveys = async () => {
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const { data, error } = await supabase
+          .from("surveys")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/surveys`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setResponses(Array.isArray(data.data) ? data.data : []);
-      })
-      .catch((e) => console.error("Error fetching surveys:", e))
-      .finally(() => setLoading(false));
+        if (error) throw error;
+        setResponses(data || []);
+      } catch (e) {
+        console.error("Error fetching surveys:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSurveys();
   }, []);
 
   const motivos = Array.from(
@@ -107,11 +110,8 @@ export default function RespuestasPage() {
 
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("adminToken");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/surveys/delete-all`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { supabase } = await import("@/lib/supabase");
+      await supabase.from("surveys").delete().neq("id", -1);
       setResponses([]);
       setShowDeleteConfirm(false);
     } catch (e) {

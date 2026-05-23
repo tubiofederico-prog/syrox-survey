@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/admin/Header";
 import { Button } from "@/components/ui/Button";
 import { MetricCard } from "@/components/admin/MetricCard";
@@ -8,8 +8,59 @@ import { FileText, Download } from "lucide-react";
 
 export default function ExportarPage() {
   const [exportedDate, setExportedDate] = useState("Nunca");
+  const [totalResponses, setTotalResponses] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const handleExportCSV = () => {
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const { supabase } = await import("@/lib/supabase");
+        const { count } = await supabase
+          .from("surveys")
+          .select("*", { count: "exact", head: true });
+        setTotalResponses(count || 0);
+      } catch (e) {
+        console.error("Error fetching count:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCount();
+  }, []);
+
+  const handleExportCSV = async () => {
+    const { supabase } = await import("@/lib/supabase");
+    const { data } = await supabase.from("surveys").select("*");
+
+    if (!data) return;
+
+    const csv = [
+      ["Fecha", "Nombre", "Email", "Empresa", "Rubro", "Q1", "Q2", "Q3", "Q4", "Q5", "Comentario"],
+      ...data.map((row: any) => [
+        row.created_at,
+        row.name,
+        row.email,
+        row.company,
+        row.industry,
+        row.q1_reason,
+        row.q2_confidence,
+        row.q3_decision,
+        row.q4_doubt,
+        row.q5_improvement,
+        row.comment,
+      ]),
+    ]
+      .map((row) => row.map((cell) => `"${cell || ""}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `surveys-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+
     const now = new Date().toLocaleDateString("es-ES", {
       day: "numeric",
       month: "long",
@@ -44,7 +95,7 @@ export default function ExportarPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <MetricCard
             title="Total de respuestas"
-            value="48"
+            value={loading ? "Cargando..." : totalResponses.toString()}
             icon={<FileText size={24} />}
           />
           <MetricCard

@@ -1,0 +1,12 @@
+{
+  "buildCommand": "npm run build && npm run build --prefix backend",
+  "installCommand": "npm install && npm install --prefix backend",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_API_URL": {
+      "description": "Backend API URL",
+      "default": "http://localhost:3001"
+    }
+  }
+}

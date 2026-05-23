@@ -48,10 +48,27 @@ export function SurveyForm() {
     if (!isFormValid) return;
 
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setIsLoading(false);
-
-    router.push("/gracias");
+    try {
+      const { submitSurvey } = await import("@/lib/api");
+      await submitSurvey({
+        name: formData.name,
+        company: formData.company,
+        industry: formData.industry,
+        email: formData.email,
+        q1_reason: formData.q1,
+        q2_confidence: formData.q2,
+        q3_decision: formData.q3,
+        q4_doubt: formData.q4,
+        q5_improvement: formData.q5,
+        comment: formData.comment,
+      });
+      router.push("/gracias");
+    } catch (error) {
+      console.error("Error submitting survey:", error);
+      alert("Error sending survey. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -17,16 +17,18 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const { loginAdmin } = await import("@/lib/api");
+      const response = await loginAdmin(email, password);
 
-    if (email === "admin@syrox.com" && password === "admin123") {
       localStorage.setItem("isAdminLoggedIn", "true");
+      localStorage.setItem("adminToken", response.token);
       router.push("/admin");
-    } else {
+    } catch (error) {
       setError("Credenciales inválidas. Intenta con admin@syrox.com / admin123");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (

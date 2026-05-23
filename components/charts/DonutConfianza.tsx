@@ -2,28 +2,10 @@
 
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  {
-    name: "Reunión comercial",
-    value: 15,
-  },
-  {
-    name: "Claridad de propuesta",
-    value: 12,
-  },
-  {
-    name: "Entendieron mi negocio",
-    value: 11,
-  },
-  {
-    name: "Comunicación del equipo",
-    value: 6,
-  },
-  {
-    name: "Otros",
-    value: 4,
-  },
-];
+type SurveyData = {
+  q2_confidence?: string;
+  [key: string]: any;
+};
 
 const COLORS = [
   "#7C3AED",
@@ -33,7 +15,18 @@ const COLORS = [
   "#E9D5FF",
 ];
 
-export function DonutConfianza() {
+export function DonutConfianza({ surveys }: { surveys: SurveyData[] }) {
+  const counts: Record<string, number> = {};
+  surveys.forEach((s) => {
+    const val = s.q2_confidence;
+    if (val) counts[val] = (counts[val] || 0) + 1;
+  });
+
+  const data = Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   return (
     <div>
       <div className="mb-6">

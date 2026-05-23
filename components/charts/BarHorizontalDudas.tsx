@@ -2,30 +2,23 @@
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  {
-    name: "Si se iban a cumplir plazos",
-    value: 14,
-  },
-  {
-    name: "Si desarrollo iba bien",
-    value: 12,
-  },
-  {
-    name: "Si inversión valía la pena",
-    value: 10,
-  },
-  {
-    name: "Si entenderían mi negocio",
-    value: 8,
-  },
-  {
-    name: "Si buen soporte",
-    value: 4,
-  },
-];
+type SurveyData = {
+  q4_doubt?: string;
+  [key: string]: any;
+};
 
-export function BarHorizontalDudas() {
+export function BarHorizontalDudas({ surveys }: { surveys: SurveyData[] }) {
+  const counts: Record<string, number> = {};
+  surveys.forEach((s) => {
+    const val = s.q4_doubt;
+    if (val) counts[val] = (counts[val] || 0) + 1;
+  });
+
+  const data = Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   return (
     <div>
       <div className="mb-6">

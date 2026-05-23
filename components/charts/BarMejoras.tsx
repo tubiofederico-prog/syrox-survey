@@ -1,31 +1,24 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  {
-    name: "Más ejemplos/casos",
-    value: 12,
-  },
-  {
-    name: "Más rapidez",
-    value: 11,
-  },
-  {
-    name: "Mayor claridad técnica",
-    value: 10,
-  },
-  {
-    name: "Más seguimiento",
-    value: 8,
-  },
-  {
-    name: "No mejoraría nada",
-    value: 7,
-  },
-];
+type SurveyData = {
+  q5_improvement?: string;
+  [key: string]: any;
+};
 
-export function BarMejoras() {
+export function BarMejoras({ surveys }: { surveys: SurveyData[] }) {
+  const counts: Record<string, number> = {};
+  surveys.forEach((s) => {
+    const val = s.q5_improvement;
+    if (val) counts[val] = (counts[val] || 0) + 1;
+  });
+
+  const data = Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   return (
     <div>
       <div className="mb-6">

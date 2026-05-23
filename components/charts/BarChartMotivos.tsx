@@ -1,36 +1,27 @@
 "use client";
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-const data = [
-  {
-    name: "Velocidad de entrega",
-    value: 17,
-    percentage: 35,
-  },
-  {
-    name: "Confianza del equipo",
-    value: 13,
-    percentage: 27,
-  },
-  {
-    name: "Propuesta/prototipo",
-    value: 10,
-    percentage: 21,
-  },
-  {
-    name: "Precio y condiciones",
-    value: 5,
-    percentage: 10,
-  },
-  {
-    name: "Otros",
-    value: 3,
-    percentage: 7,
-  },
-];
+type SurveyData = {
+  q1_reason?: string;
+  [key: string]: any;
+};
 
-export function BarChartMotivos() {
+export function BarChartMotivos({ surveys }: { surveys: SurveyData[] }) {
+  const counts: Record<string, number> = {};
+  surveys.forEach((s) => {
+    const val = s.q1_reason;
+    if (val) counts[val] = (counts[val] || 0) + 1;
+  });
+
+  const data = Object.entries(counts)
+    .map(([name, value]) => ({
+      name: name.substring(0, 20),
+      value,
+      percentage: Math.round((value / surveys.length) * 100),
+    }))
+    .sort((a, b) => b.value - a.value);
+
   return (
     <div>
       <div className="mb-6">

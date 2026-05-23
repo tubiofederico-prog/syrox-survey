@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Syrox Survey Platform
+
+A full-stack survey application with Next.js frontend and NestJS backend.
+
+## Project Structure
+
+```
+├── app/                    # Next.js app directory
+├── components/             # React components
+├── lib/                    # Utilities (API client, etc.)
+├── backend/                # NestJS backend
+│   ├── src/               # Backend source code
+│   ├── package.json       # Backend dependencies
+│   └── ...
+├── package.json           # Root dependencies
+└── vercel.json           # Vercel monorepo configuration
+```
 
 ## Getting Started
 
-First, run the development server:
+### Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm install --prefix backend
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Run both frontend and backend simultaneously:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev:all
+```
 
-## Learn More
+This will start:
+- Frontend: http://localhost:3000
+- Backend: http://localhost:3001
 
-To learn more about Next.js, take a look at the following resources:
+Or run them separately:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Terminal 1 - Frontend
+npm run dev
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Terminal 2 - Backend
+npm run start:dev --prefix backend
+```
 
-## Deploy on Vercel
+### Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Copy `.env.example` to `.env.local` and configure:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+For backend configuration, see `backend/README.md`
+
+## Building
+
+Build both frontend and backend:
+
+```bash
+npm run build
+```
+
+## Deployment on Vercel
+
+The monorepo is configured for Vercel via `vercel.json`. When you push to GitHub, Vercel will:
+
+1. Install dependencies for both projects
+2. Build the Next.js frontend
+3. Build the NestJS backend
+
+Set environment variables in Vercel dashboard:
+- `NEXT_PUBLIC_API_URL`: Your backend URL (e.g., `https://your-backend-domain.com`)
+
+## API Integration
+
+The frontend uses the API client at `lib/api.ts` which points to `NEXT_PUBLIC_API_URL`.
+
+Available endpoints:
+- `POST /api/surveys` - Submit survey
+- `POST /api/auth/login` - Admin login
+- `GET /api/surveys` - Get surveys (requires token)
+- `GET /api/surveys/analytics` - Get analytics (requires token)
+
+## Documentation
+
+- [Backend Documentation](./backend/README.md)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [NestJS Documentation](https://docs.nestjs.com)

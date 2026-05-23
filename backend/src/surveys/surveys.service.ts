@@ -64,6 +64,15 @@ export class SurveysService {
     return analytics;
   }
 
+  async deleteAll() {
+    const supabase = this.supabaseService.getClient();
+
+    const { error } = await supabase.from('surveys').delete().neq('id', -1);
+
+    if (error) throw error;
+    return { success: true, message: 'All surveys deleted' };
+  }
+
   private countField(data: any[], field: string): Record<string, number> {
     return data.reduce((acc, item) => {
       const value = item[field];

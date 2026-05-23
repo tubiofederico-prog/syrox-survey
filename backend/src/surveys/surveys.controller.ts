@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Query, UseGuards } from '@nestjs/common';
 import { SurveysService } from './surveys.service';
 import { CreateSurveyDto } from './dto/create-survey.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -22,5 +22,11 @@ export class SurveysController {
   @UseGuards(JwtAuthGuard)
   async getAnalytics() {
     return this.surveysService.getAnalytics();
+  }
+
+  @Delete('delete-all')
+  @UseGuards(JwtAuthGuard)
+  async deleteAll() {
+    return this.surveysService.deleteAll();
   }
 }

@@ -1,37 +1,66 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/admin/Header";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { mockResponses } from "@/data/mockResponses";
 import { industries } from "@/data/surveyQuestions";
 import { formatDate } from "@/lib/utils";
-import { Eye, X } from "lucide-react";
+import { Eye, X, Trash2 } from "lucide-react";
 
 type SortField = "date" | "name" | "company";
+type SurveyResponse = {
+  id: string;
+  created_at: string;
+  q1_reason?: string;
+  q2_confidence?: string;
+  q3_decision?: string;
+  q4_doubt?: string;
+  q5_improvement?: string;
+  industry?: string;
+  [key: string]: any;
+};
 
 export default function RespuestasPage() {
+  const [responses, setResponses] = useState<SurveyResponse[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("");
   const [selectedMotivo, setSelectedMotivo] = useState("");
   const [selectedDetail, setSelectedDetail] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("date");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/surveys`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setResponses(Array.isArray(data.data) ? data.data : []);
+      })
+      .catch((e) => console.error("Error fetching surveys:", e))
+      .finally(() => setLoading(false));
+  }, []);
 
   const motivos = Array.from(
-    new Set(mockResponses.map((r) => r.q1_reason))
+    new Set(responses.map((r) => r.q1_reason).filter(Boolean))
   ).sort();
 
   const filteredResponses = useMemo(() => {
-    let filtered = mockResponses;
+    let filtered = responses;
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (r) =>
-          r.name.toLowerCase().includes(term) ||
-          r.company.toLowerCase().includes(term) ||
-          r.email.toLowerCase().includes(term)
+          String(r.name || "").toLowerCase().includes(term) ||
+          String(r.company || "").toLowerCase().includes(term) ||
+          String(r.email || "").toLowerCase().includes(term)
       );
     }
 
@@ -43,23 +72,22 @@ export default function RespuestasPage() {
       filtered = filtered.filter((r) => r.q1_reason === selectedMotivo);
     }
 
-    // Sort
     filtered.sort((a, b) => {
       if (sortField === "date") {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       } else if (sortField === "name") {
-        return a.name.localeCompare(b.name);
+        return String(a.name || "").localeCompare(String(b.name || ""));
       } else if (sortField === "company") {
-        return a.company.localeCompare(b.company);
+        return String(a.company || "").localeCompare(String(b.company || ""));
       }
       return 0;
     });
 
     return filtered;
-  }, [searchTerm, selectedIndustry, selectedMotivo, sortField]);
+  }, [responses, searchTerm, selectedIndustry, selectedMotivo, sortField]);
 
   const selectedDetailData = selectedDetail
-    ? mockResponses.find((r) => r.id === selectedDetail)
+    ? responses.find((r) => r.id === selectedDetail)
     : null;
 
   const handleClearFilters = () => {
@@ -67,6 +95,39 @@ export default function RespuestasPage() {
     setSelectedIndustry("");
     setSelectedMotivo("");
   };
+
+  const handleDeleteAll = async () => {
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/surveys/delete-all`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setResponses([]);
+      setShowDeleteConfirm(false);
+    } catch (e) {
+      console.error("Error deleting surveys:", e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <>
+        <Header title="Respuestas" />
+        <div className="p-8 text-center">
+          <p className="text-gray-600">Cargando respuestas...</p>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -145,72 +206,91 @@ export default function RespuestasPage() {
             </div>
           </div>
 
-          {/* Clear Filters */}
+          {/* Clear Filters and Delete All */}
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              Mostrando {filteredResponses.length} de {mockResponses.length} respuestas
+              Mostrando {filteredResponses.length} de {responses.length} respuestas
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearFilters}
-            >
-              Limpiar filtros
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearFilters}
+              >
+                Limpiar filtros
+              </Button>
+              {responses.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteAll}
+                  className={showDeleteConfirm ? "bg-red-50 border-red-300" : ""}
+                >
+                  <Trash2 size={16} className="mr-2" />
+                  {showDeleteConfirm ? "¿Estás seguro?" : "Borrar todos"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Fecha</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Nombre</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Empresa</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Rubro</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Motivo principal</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-900">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredResponses.map((response) => (
-                  <tr
-                    key={response.id}
-                    className="border-b border-slate-100 hover:bg-violet-50/50 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 text-slate-600 font-medium">
-                      {formatDate(response.date)}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-slate-900">
-                      {response.name || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
-                      {response.company || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
-                      {response.industry}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 px-3 py-1.5 rounded-full font-medium">
-                        {response.q1_reason}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => setSelectedDetail(response.id)}
-                        className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-semibold hover:bg-violet-50 px-3 py-1 rounded-lg transition-all"
-                      >
-                        <Eye size={16} />
-                        Ver
-                      </button>
-                    </td>
+          {filteredResponses.length === 0 ? (
+            <div className="p-8 text-center text-gray-600">
+              <p>No hay respuestas para mostrar</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Fecha</th>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Nombre</th>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Empresa</th>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Rubro</th>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Motivo principal</th>
+                    <th className="px-6 py-4 text-left font-bold text-slate-900">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredResponses.map((response) => (
+                    <tr
+                      key={response.id}
+                      className="border-b border-slate-100 hover:bg-violet-50/50 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4 text-slate-600 font-medium">
+                        {formatDate(response.created_at || new Date().toISOString())}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        {response.name || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {response.company || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-slate-600">
+                        {response.industry || "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 px-3 py-1.5 rounded-full font-medium">
+                          {response.q1_reason || "—"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => setSelectedDetail(response.id)}
+                          className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-semibold hover:bg-violet-50 px-3 py-1 rounded-lg transition-all"
+                        >
+                          <Eye size={16} />
+                          Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

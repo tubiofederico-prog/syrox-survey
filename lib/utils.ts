@@ -4,7 +4,7 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
 }
 
-export function formatDate(date: Date): string {
+export function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString("es-ES", {
     year: "numeric",
     month: "short",

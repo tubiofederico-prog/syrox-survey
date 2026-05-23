@@ -8,6 +8,14 @@ import { supabase } from "@/lib/supabase";
 type Question = {
   id: number;
   question_text: string;
+  question_type: "text" | "multiple_choice" | "single_choice";
+  order_index: number;
+};
+
+type QuestionOption = {
+  id: number;
+  question_id: number;
+  option_text: string;
   order_index: number;
 };
 
@@ -21,6 +29,7 @@ export function SurveyForm() {
   const router = useRouter();
   const [survey, setSurvey] = useState<SurveyConfig | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [questionOptions, setQuestionOptions] = useState<Record<number, QuestionOption[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -70,6 +79,22 @@ export function SurveyForm() {
           .order("order_index");
 
         setQuestions(questionsData || []);
+
+        // Get options for each question
+        if (questionsData && questionsData.length > 0) {
+          const optionsMap: Record<number, QuestionOption[]> = {};
+          for (const q of questionsData) {
+            if (q.question_type === "single_choice" || q.question_type === "multiple_choice") {
+              const { data: optionsData } = await supabase
+                .from("question_options")
+                .select("*")
+                .eq("question_id", q.id)
+                .order("order_index");
+              optionsMap[q.id] = optionsData || [];
+            }
+          }
+          setQuestionOptions(optionsMap);
+        }
       } catch (error) {
         console.error("Error al cargar la encuesta:", error);
       } finally {
@@ -200,13 +225,58 @@ export function SurveyForm() {
                 Pregunta {idx + 1}: {question.question_text}
               </span>
             </label>
-            <textarea
-              value={formData.answers[question.id] || ""}
-              onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-              placeholder="Tu respuesta..."
-              rows={3}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-all placeholder:text-slate-400"
-            />
+
+            {question.question_type === "text" && (
+              <textarea
+                value={formData.answers[question.id] || ""}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                placeholder="Tu respuesta..."
+                rows={3}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-all placeholder:text-slate-400"
+              />
+            )}
+
+            {question.question_type === "single_choice" && (
+              <div className="space-y-3">
+                {(questionOptions[question.id] || []).map((option) => (
+                  <label key={option.id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="radio"
+                      name={`question_${question.id}`}
+                      value={option.option_text}
+                      checked={formData.answers[question.id] === option.option_text}
+                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                      className="w-4 h-4 text-indigo-500 cursor-pointer"
+                    />
+                    <span className="text-slate-900 text-sm">{option.option_text}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {question.question_type === "multiple_choice" && (
+              <div className="space-y-3">
+                {(questionOptions[question.id] || []).map((option) => (
+                  <label key={option.id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      value={option.option_text}
+                      checked={(formData.answers[question.id] || "").includes(option.option_text)}
+                      onChange={(e) => {
+                        const current = (formData.answers[question.id] || "").split(";").filter(Boolean);
+                        if (e.target.checked) {
+                          handleAnswerChange(question.id, [...current, e.target.value].join(";"));
+                        } else {
+                          handleAnswerChange(question.id, current.filter(v => v !== e.target.value).join(";"));
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-500 cursor-pointer rounded"
+                    />
+                    <span className="text-slate-900 text-sm">{option.option_text}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

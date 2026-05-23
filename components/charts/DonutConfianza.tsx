@@ -29,20 +29,20 @@ export function DonutConfianza({ surveys }: { surveys: SurveyData[] }) {
 
   return (
     <div>
-      <div className="mb-6">
-        <h3 className="text-base font-semibold text-slate-900">
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-slate-900">
           Factores de confianza
         </h3>
-        <p className="text-xs text-slate-400 mt-1">Análisis de respuestas</p>
+        <p className="text-xs text-slate-500 mt-0.5">Análisis de respuestas</p>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={250}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
-            innerRadius={60}
-            outerRadius={100}
+            innerRadius={55}
+            outerRadius={85}
             paddingAngle={1}
             dataKey="value"
           >
@@ -50,7 +50,7 @@ export function DonutConfianza({ surveys }: { surveys: SurveyData[] }) {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff" }} />
+          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", fontSize: 12 }} />
         </PieChart>
       </ResponsiveContainer>
     </div>

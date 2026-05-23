@@ -76,9 +76,9 @@ export default function DashboardPage() {
     <>
       <Header title="Dashboard" />
 
-      <div className="p-8 bg-slate-50/50">
+      <div className="p-6 bg-white">
         {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
           <MetricCard
             title="Total de respuestas"
             value={surveys.length.toString()}
@@ -115,17 +115,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg border border-slate-100 p-6 hover:border-slate-200 transition-colors">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
             <BarChartMotivos surveys={surveys} />
           </div>
-          <div className="bg-white rounded-lg border border-slate-100 p-6 hover:border-slate-200 transition-colors">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
             <DonutConfianza surveys={surveys} />
           </div>
-          <div className="bg-white rounded-lg border border-slate-100 p-6 hover:border-slate-200 transition-colors">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
             <BarHorizontalDudas surveys={surveys} />
           </div>
-          <div className="bg-white rounded-lg border border-slate-100 p-6 hover:border-slate-200 transition-colors">
+          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
             <BarMejoras surveys={surveys} />
           </div>
         </div>

@@ -21,23 +21,23 @@ export function BarHorizontalDudas({ surveys }: { surveys: SurveyData[] }) {
 
   return (
     <div>
-      <div className="mb-6">
-        <h3 className="text-base font-semibold text-slate-900">
+      <div className="mb-5">
+        <h3 className="text-sm font-semibold text-slate-900">
           Dudas principales
         </h3>
-        <p className="text-xs text-slate-400 mt-1">Objeciones antes de decidir</p>
+        <p className="text-xs text-slate-500 mt-0.5">Objeciones antes de decidir</p>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={250}>
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ left: 180, top: 10 }}
+          margin={{ left: 160, top: 5 }}
         >
           <CartesianGrid strokeDasharray="0" stroke="#f1f5f9" vertical={true} />
-          <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
-          <YAxis dataKey="name" type="category" width={180} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
-          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff" }} />
-          <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
+          <XAxis type="number" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} width={30} />
+          <YAxis dataKey="name" type="category" width={160} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} />
+          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", fontSize: 12 }} />
+          <Bar dataKey="value" fill="#6366f1" radius={[0, 3, 3, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

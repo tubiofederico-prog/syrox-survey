@@ -22,18 +22,18 @@ export function BarMejoras({ surveys }: { surveys: SurveyData[] }) {
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-slate-900">
-          Aspectos a mejorar del proceso
+        <h3 className="text-base font-semibold text-slate-900">
+          Mejoras sugeridas
         </h3>
-        <p className="text-sm text-slate-500 mt-1">Retroalimentación para optimizar</p>
+        <p className="text-xs text-slate-400 mt-1">Retroalimentación del cliente</p>
       </div>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-          <YAxis />
-          <Tooltip />
-          <Bar dataKey="value" fill="#8B5CF6" />
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data} margin={{ bottom: 50, top: 10 }}>
+          <CartesianGrid strokeDasharray="0" stroke="#f1f5f9" vertical={false} />
+          <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
+          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff" }} />
+          <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

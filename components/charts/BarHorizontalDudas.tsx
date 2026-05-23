@@ -22,22 +22,22 @@ export function BarHorizontalDudas({ surveys }: { surveys: SurveyData[] }) {
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-slate-900">
-          Principales dudas antes de decidir
+        <h3 className="text-base font-semibold text-slate-900">
+          Dudas principales
         </h3>
-        <p className="text-sm text-slate-500 mt-1">Objeciones y preocupaciones</p>
+        <p className="text-xs text-slate-400 mt-1">Objeciones antes de decidir</p>
       </div>
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={280}>
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ left: 200 }}
+          margin={{ left: 180, top: 10 }}
         >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" />
-          <YAxis dataKey="name" type="category" width={200} />
-          <Tooltip />
-          <Bar dataKey="value" fill="#7C3AED" />
+          <CartesianGrid strokeDasharray="0" stroke="#f1f5f9" vertical={true} />
+          <XAxis type="number" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
+          <YAxis dataKey="name" type="category" width={180} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} />
+          <Tooltip contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e2e8f0", backgroundColor: "#ffffff" }} />
+          <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

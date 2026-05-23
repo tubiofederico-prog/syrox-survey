@@ -65,7 +65,7 @@ export function Header({ title }: HeaderProps) {
             <button
               onClick={handleLogout}
               className="w-8 h-8 flex items-center justify-center rounded-md bg-slate-100 text-slate-600 hover:bg-red-100 hover:text-red-600 transition-colors"
-              title="Logout"
+              title="Cerrar sesión"
             >
               <LogOut size={16} />
             </button>

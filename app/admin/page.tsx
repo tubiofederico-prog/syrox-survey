@@ -1,22 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TrendingUp, Star, Zap, AlertCircle, Lightbulb } from "lucide-react";
+import { TrendingUp, Star, Zap } from "lucide-react";
 import { Header } from "@/components/admin/Header";
 import { MetricCard } from "@/components/admin/MetricCard";
-import { BarChartMotivos } from "@/components/charts/BarChartMotivos";
-import { DonutConfianza } from "@/components/charts/DonutConfianza";
-import { BarHorizontalDudas } from "@/components/charts/BarHorizontalDudas";
-import { BarMejoras } from "@/components/charts/BarMejoras";
 
 type SurveyData = {
   id: string;
   created_at: string;
-  q1_reason?: string;
-  q2_confidence?: string;
-  q3_decision?: string;
-  q4_doubt?: string;
-  q5_improvement?: string;
+  survey_id?: number;
+  name?: string;
+  company?: string;
+  industry?: string;
+  email?: string;
+  comment?: string;
   [key: string]: any;
 };
 
@@ -31,7 +28,7 @@ export default function DashboardPage() {
         const { data } = await supabase.from("surveys").select("*");
         setSurveys(data || []);
       } catch (e) {
-        console.error("Error fetching surveys:", e);
+        console.error("Error al cargar las respuestas:", e);
       } finally {
         setLoading(false);
       }
@@ -57,16 +54,32 @@ export default function DashboardPage() {
     return { value: topValue, percentage: `${percentage}%` };
   };
 
-  const q1Top = getTopItem("q1_reason");
-  const q2Top = getTopItem("q2_confidence");
-  const q3Top = getTopItem("q3_decision");
-  const q4Top = getTopItem("q4_doubt");
-  const q5Top = getTopItem("q5_improvement");
+  const getMostCommonAnswer = () => {
+    if (surveys.length === 0) return { value: "—", percentage: "0%" };
+
+    const allAnswers: Record<string, number> = {};
+    surveys.forEach((s: any) => {
+      Object.keys(s).forEach((key) => {
+        if (key.startsWith("answer_") && s[key]) {
+          allAnswers[s[key]] = (allAnswers[s[key]] || 0) + 1;
+        }
+      });
+    });
+
+    const sorted = Object.entries(allAnswers).sort((a, b) => b[1] - a[1]);
+    if (sorted.length === 0) return { value: "—", percentage: "0%" };
+
+    const [topValue, topCount] = sorted[0];
+    const percentage = Math.round((topCount / surveys.length) * 100);
+    return { value: topValue.substring(0, 15), percentage: `${percentage}%` };
+  };
+
+  const q1Top = getMostCommonAnswer();
 
   if (loading) {
     return (
       <>
-        <Header title="Dashboard" />
+        <Header title="Panel de Control" />
         <div className="p-8 text-center text-gray-600">Cargando datos...</div>
       </>
     );
@@ -74,59 +87,70 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title="Panel de Control" />
 
       <div className="p-6 bg-white">
-        {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+        {/* Tarjetas de Métricas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
           <MetricCard
             title="Total de respuestas"
             value={surveys.length.toString()}
             icon={<TrendingUp size={24} />}
           />
           <MetricCard
-            title="Motivo principal"
+            title="Respuesta más común"
             value={q1Top.value.length > 15 ? q1Top.value.substring(0, 12) + "..." : q1Top.value}
-            description={`${q1Top.percentage} de respuestas`}
+            description={`${q1Top.percentage} de las respuestas`}
             valueSize="sm"
             icon={<Zap size={24} />}
           />
           <MetricCard
-            title="Factor de confianza"
-            value={q2Top.value.length > 15 ? q2Top.value.substring(0, 12) + "..." : q2Top.value}
-            description={`${q2Top.percentage} de respuestas`}
-            valueSize="sm"
+            title="Rubros respondidos"
+            value={new Set(surveys.map(s => s.industry).filter(Boolean)).size.toString()}
             icon={<Star size={24} />}
-          />
-          <MetricCard
-            title="Principal duda"
-            value={q4Top.value.length > 15 ? q4Top.value.substring(0, 12) + "..." : q4Top.value}
-            description={`${q4Top.percentage} de respuestas`}
-            valueSize="sm"
-            icon={<AlertCircle size={24} />}
-          />
-          <MetricCard
-            title="Mejora sugerida"
-            value={q5Top.value.length > 15 ? q5Top.value.substring(0, 12) + "..." : q5Top.value}
-            description={`${q5Top.percentage} de respuestas`}
-            valueSize="sm"
-            icon={<Lightbulb size={24} />}
           />
         </div>
 
-        {/* Charts Grid */}
+        {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
-            <BarChartMotivos surveys={surveys} />
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-slate-900">Respuestas por rubro</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Distribución de respondentes</p>
+            </div>
+            <div className="space-y-2">
+              {Object.entries(
+                surveys.reduce((acc, s) => {
+                  acc[s.industry || "Sin especificar"] = (acc[s.industry || "Sin especificar"] || 0) + 1;
+                  return acc;
+                }, {} as Record<string, number>)
+              ).map(([industry, count]) => (
+                <div key={industry} className="flex justify-between items-center text-xs">
+                  <span className="text-slate-700">{industry}</span>
+                  <span className="font-medium text-indigo-600">{count}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
-            <DonutConfianza surveys={surveys} />
-          </div>
-          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
-            <BarHorizontalDudas surveys={surveys} />
-          </div>
-          <div className="bg-white rounded-lg border border-slate-100 p-5 hover:border-slate-200 transition-colors">
-            <BarMejoras surveys={surveys} />
+            <div className="mb-5">
+              <h3 className="text-sm font-semibold text-slate-900">Información de respuestas</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Resumen de datos recopilados</p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-slate-500">Con nombre</p>
+                <p className="text-sm font-semibold text-slate-900">{surveys.filter(s => s.name).length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Con correo electrónico</p>
+                <p className="text-sm font-semibold text-slate-900">{surveys.filter(s => s.email).length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Con comentario adicional</p>
+                <p className="text-sm font-semibold text-slate-900">{surveys.filter(s => s.comment).length}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

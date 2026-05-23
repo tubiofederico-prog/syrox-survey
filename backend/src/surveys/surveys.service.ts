@@ -17,7 +17,7 @@ export class SurveysService {
     ]);
 
     if (error) throw error;
-    return { id: data[0]?.id, success: true };
+    return { id: (data as any)?.[0]?.id, success: true };
   }
 
   async findAll(page = 1, limit = 50) {

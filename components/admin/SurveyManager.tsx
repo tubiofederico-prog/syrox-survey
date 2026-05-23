@@ -121,7 +121,7 @@ export function SurveyManager() {
     setLoading(true);
     try {
       const orderIndex = Math.max(...questions.map(q => q.order_index || 0), 0) + 1;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("questions")
         .insert([{
           survey_id: selectedSurvey.id,
@@ -131,13 +131,26 @@ export function SurveyManager() {
         }])
         .select();
 
-      if (data) {
-        setQuestions([...questions, data[0]]);
+      if (error) {
+        console.error("Error al agregar pregunta:", error);
+        alert("Error: " + error.message);
+        return;
+      }
+
+      if (data && data[0]) {
+        const newQ = data[0];
+        setQuestions([...questions, newQ]);
         setNewQuestion("");
         setQuestionType("text");
+        // Seleccionar automáticamente la pregunta recién creada si tiene opciones
+        if (questionType !== "text") {
+          setSelectedQuestion(newQ);
+          setOptions([]);
+        }
       }
     } catch (e) {
       console.error("Error al agregar pregunta:", e);
+      alert("Error al agregar pregunta: " + e);
     } finally {
       setLoading(false);
     }
@@ -148,7 +161,7 @@ export function SurveyManager() {
     setLoading(true);
     try {
       const orderIndex = Math.max(...options.map(o => o.order_index || 0), 0) + 1;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("question_options")
         .insert([{
           question_id: selectedQuestion.id,
@@ -157,12 +170,19 @@ export function SurveyManager() {
         }])
         .select();
 
+      if (error) {
+        console.error("Error al agregar opción:", error);
+        alert("Error: " + error.message);
+        return;
+      }
+
       if (data) {
         setOptions([...options, data[0]]);
         setNewOption("");
       }
     } catch (e) {
       console.error("Error al agregar opción:", e);
+      alert("Error al agregar opción: " + e);
     } finally {
       setLoading(false);
     }

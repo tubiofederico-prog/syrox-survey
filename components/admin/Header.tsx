@@ -15,6 +15,16 @@ export function Header({ title }: HeaderProps) {
 
   const surveyUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/encuesta`;
 
+  // Función para copiar link de encuestas
+  const handleCopySurveyLink = (surveyId?: number) => {
+    const url = surveyId
+      ? `${typeof window !== "undefined" ? window.location.origin : ""}/encuesta/${surveyId}`
+      : surveyUrl;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(surveyUrl);
     setCopied(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, X } from "lucide-react";
+import { Plus, Trash2, Save, X, Copy, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type SurveyConfig = {
@@ -54,6 +54,7 @@ export function SurveyManager() {
   const [newQuestionType, setNewQuestionType] = useState<"text" | "multiple_choice" | "single_choice">("text");
   const [newOptionText, setNewOptionText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedSurveyId, setCopiedSurveyId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchSurveys();
@@ -66,6 +67,13 @@ export function SurveyManager() {
   }, [selectedSurvey]);
 
   // ===== FUNCIONES PARA ENCUESTAS EXISTENTES =====
+
+  const copySurveyLink = (surveyId: number) => {
+    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/encuesta/${surveyId}`;
+    navigator.clipboard.writeText(url);
+    setCopiedSurveyId(surveyId);
+    setTimeout(() => setCopiedSurveyId(null), 2000);
+  };
 
   const fetchSurveys = async () => {
     try {
@@ -513,10 +521,29 @@ export function SurveyManager() {
           </div>
         ) : selectedSurvey ? (
           // Vista de encuesta existente
-          <div className="bg-white rounded-lg border border-slate-100 p-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">Preguntas: {selectedSurvey.title}</h3>
+          <div className="space-y-5">
+            <div className="bg-white rounded-lg border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-slate-900">Preguntas: {selectedSurvey.title}</h3>
+                <button
+                  onClick={() => copySurveyLink(selectedSurvey.id)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-slate-100 transition-colors border border-slate-200"
+                >
+                  {copiedSurveyId === selectedSurvey.id ? (
+                    <>
+                      <Check size={14} className="text-emerald-600" />
+                      <span className="text-emerald-700">Copiado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} />
+                      <span>Copiar link</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-            <div className="space-y-3">
+              <div className="space-y-3">
               {dbQuestions.length === 0 ? (
                 <p className="text-xs text-slate-500">Sin preguntas</p>
               ) : (
@@ -550,6 +577,7 @@ export function SurveyManager() {
                   </div>
                 ))
               )}
+              </div>
             </div>
           </div>
         ) : (

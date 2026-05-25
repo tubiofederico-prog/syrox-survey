@@ -25,7 +25,11 @@ type SurveyConfig = {
   description?: string;
 };
 
-export function SurveyForm() {
+interface SurveyFormProps {
+  surveyId?: number;
+}
+
+export function SurveyForm({ surveyId }: SurveyFormProps) {
   const router = useRouter();
   const [survey, setSurvey] = useState<SurveyConfig | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -56,19 +60,36 @@ export function SurveyForm() {
   useEffect(() => {
     const fetchSurvey = async () => {
       try {
-        // Get the first active survey
-        const { data: surveys } = await supabase
-          .from("surveys_config")
-          .select("*")
-          .eq("is_active", true)
-          .limit(1);
+        let activeSurvey;
 
-        if (!surveys || surveys.length === 0) {
-          setIsLoading(false);
-          return;
+        // Si surveyId está definido, cargar esa encuesta específica
+        if (surveyId) {
+          const { data: surveys, error } = await supabase
+            .from("surveys_config")
+            .select("*")
+            .eq("id", surveyId);
+
+          if (error || !surveys || surveys.length === 0) {
+            console.error("Encuesta no encontrada:", error);
+            setIsLoading(false);
+            return;
+          }
+          activeSurvey = surveys[0];
+        } else {
+          // Si no, buscar la primera encuesta activa
+          const { data: surveys } = await supabase
+            .from("surveys_config")
+            .select("*")
+            .eq("is_active", true)
+            .limit(1);
+
+          if (!surveys || surveys.length === 0) {
+            setIsLoading(false);
+            return;
+          }
+          activeSurvey = surveys[0];
         }
 
-        const activeSurvey = surveys[0];
         setSurvey(activeSurvey);
 
         // Get questions for this survey
@@ -103,7 +124,7 @@ export function SurveyForm() {
     };
 
     fetchSurvey();
-  }, []);
+  }, [surveyId]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,

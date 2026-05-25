@@ -128,20 +128,38 @@ export function SurveyManager() {
   };
 
   const deleteSurvey = async (surveyId: number) => {
-    if (!confirm("¿Estás seguro? Se eliminarán la encuesta y todas sus preguntas.")) return;
+    if (!confirm("¿Estás seguro? Se eliminarán la encuesta, preguntas y opciones.")) return;
     try {
-      const { error } = await supabase.from("surveys_config").delete().eq("id", surveyId);
-      if (error) {
-        alert("Error: " + error.message);
-        return;
-      }
+      // Eliminar en cascada: opciones -> preguntas -> encuesta
+      const { error: optionsError } = await supabase
+        .from("question_options")
+        .delete()
+        .in("question_id", (await supabase
+          .from("questions")
+          .select("id")
+          .eq("survey_id", surveyId)).data?.map((q: any) => q.id) || []);
+
+      const { error: questionsError } = await supabase
+        .from("questions")
+        .delete()
+        .eq("survey_id", surveyId);
+
+      const { error: surveyError } = await supabase
+        .from("surveys_config")
+        .delete()
+        .eq("id", surveyId);
+
+      if (surveyError) throw surveyError;
+
+      // Actualizar estado local
       setSurveys(surveys.filter(s => s.id !== surveyId));
       setSelectedSurvey(null);
       setDbQuestions([]);
-      alert("✅ Encuesta eliminada");
+      setDbOptions({});
+      alert("✅ Encuesta y todas sus preguntas eliminadas");
     } catch (e) {
       console.error("Error al eliminar encuesta:", e);
-      alert("Error: " + String(e));
+      alert("Error al eliminar: " + String(e));
     }
   };
 

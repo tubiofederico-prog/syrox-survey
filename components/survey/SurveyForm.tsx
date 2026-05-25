@@ -127,22 +127,29 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
 
         console.log(`✅ ${questionsData?.length || 0} preguntas cargadas`);
         setQuestions(questionsData || []);
+        setError(null);
 
         // Get options for each question
         if (questionsData && questionsData.length > 0) {
           const optionsMap: Record<number, QuestionOption[]> = {};
           for (const q of questionsData) {
+            console.log(`Cargando opciones para pregunta ${q.id} (tipo: ${q.question_type})`);
             if (q.question_type === "single_choice" || q.question_type === "multiple_choice") {
-              const { data: optionsData } = await supabase
+              const { data: optionsData, error: optionsError } = await supabase
                 .from("question_options")
                 .select("*")
                 .eq("question_id", q.id)
                 .order("order_index");
+
+              if (optionsError) {
+                console.error(`Error cargando opciones para pregunta ${q.id}:`, optionsError);
+              }
               optionsMap[q.id] = optionsData || [];
+              console.log(`✅ Pregunta ${q.id}: ${optionsData?.length || 0} opciones`);
             }
           }
           setQuestionOptions(optionsMap);
-          console.log("✅ Opciones cargadas");
+          console.log("✅ Todas las opciones cargadas");
         }
       } catch (error) {
         console.error("Error al cargar la encuesta:", error);
@@ -236,8 +243,12 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
     );
   }
 
-  if (!survey || questions.length === 0) {
+  if (!survey) {
     return <div className="text-center text-slate-600">No hay encuestas disponibles</div>;
+  }
+
+  if (questions.length === 0) {
+    return <div className="text-center text-slate-600">Esta encuesta no tiene preguntas aún</div>;
   }
 
   return (

@@ -36,6 +36,7 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
   const [questionOptions, setQuestionOptions] = useState<Record<number, QuestionOption[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -58,22 +59,40 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
   ];
 
   useEffect(() => {
-    const fetchSurvey = async () => {
+    const fetchSurvey = async (attempt = 1) => {
       try {
+        setError(null);
         let activeSurvey;
 
         // Si surveyId está definido, cargar esa encuesta específica
         if (surveyId) {
-          const { data: surveys, error } = await supabase
+          console.log(`📋 Buscando encuesta ID ${surveyId}... (intento ${attempt})`);
+          const { data: surveys, error: fetchError } = await supabase
             .from("surveys_config")
             .select("*")
             .eq("id", surveyId);
 
-          if (error || !surveys || surveys.length === 0) {
-            console.error("Encuesta no encontrada:", error);
+          if (fetchError) {
+            console.error("Error al buscar encuesta:", fetchError);
+            setError(`Error: ${fetchError.message}`);
             setIsLoading(false);
             return;
           }
+
+          if (!surveys || surveys.length === 0) {
+            if (attempt < 3) {
+              // Reintentar después de 1 segundo (para esperar replicación de Supabase)
+              console.log("⏳ Encuesta no encontrada. Reintentando en 1 segundo...");
+              setTimeout(() => fetchSurvey(attempt + 1), 1000);
+              return;
+            } else {
+              console.error("Encuesta no encontrada después de 3 intentos");
+              setError(`❌ Encuesta con ID ${surveyId} no encontrada`);
+              setIsLoading(false);
+              return;
+            }
+          }
+          console.log("✅ Encuesta encontrada:", surveys[0].title);
           activeSurvey = surveys[0];
         } else {
           // Si no, buscar la primera encuesta activa
@@ -84,6 +103,7 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
             .limit(1);
 
           if (!surveys || surveys.length === 0) {
+            setError("No hay encuestas disponibles");
             setIsLoading(false);
             return;
           }
@@ -93,12 +113,19 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
         setSurvey(activeSurvey);
 
         // Get questions for this survey
-        const { data: questionsData } = await supabase
+        const { data: questionsData, error: questionsError } = await supabase
           .from("questions")
           .select("*")
           .eq("survey_id", activeSurvey.id)
           .order("order_index");
 
+        if (questionsError) {
+          console.error("Error al cargar preguntas:", questionsError);
+          setError(`Error al cargar preguntas: ${questionsError.message}`);
+          return;
+        }
+
+        console.log(`✅ ${questionsData?.length || 0} preguntas cargadas`);
         setQuestions(questionsData || []);
 
         // Get options for each question
@@ -115,9 +142,11 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
             }
           }
           setQuestionOptions(optionsMap);
+          console.log("✅ Opciones cargadas");
         }
       } catch (error) {
         console.error("Error al cargar la encuesta:", error);
+        setError(`Error: ${String(error)}`);
       } finally {
         setIsLoading(false);
       }
@@ -182,7 +211,29 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
   };
 
   if (isLoading) {
-    return <div className="text-center text-slate-600">Cargando encuesta...</div>;
+    return (
+      <div className="text-center">
+        <div className="text-slate-600 mb-4">⏳ Cargando encuesta...</div>
+        <div className="text-xs text-slate-500">Esto puede tomar unos segundos la primera vez</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center">
+        <div className="text-red-600 font-semibold mb-4">{error}</div>
+        <div className="text-xs text-slate-500 mb-4">Verifica en la consola (F12) para más detalles</div>
+        {typeof surveyId !== "undefined" && (
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"
+          >
+            Reintentar
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (!survey || questions.length === 0) {

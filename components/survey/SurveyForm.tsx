@@ -193,21 +193,25 @@ export function SurveyForm({ surveyId }: SurveyFormProps) {
 
     setIsSubmitting(true);
     try {
-      const surveyData: Record<string, any> = {
-        name: formData.name,
-        company: formData.company,
-        industry: formData.industry,
-        email: formData.email,
-        comment: formData.comment,
-        survey_id: survey.id,
-      };
-
-      // Add answers dynamically
-      questions.forEach((q, idx) => {
-        surveyData[`answer_${q.id}`] = formData.answers[q.id];
+      const response = await fetch("/api/submit-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          survey_id: survey.id,
+          name: formData.name,
+          company: formData.company,
+          industry: formData.industry,
+          email: formData.email,
+          comment: formData.comment,
+          answers: formData.answers,
+        }),
       });
 
-      await supabase.from("surveys").insert([surveyData]);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al enviar respuesta");
+      }
+
       router.push("/gracias");
     } catch (error) {
       console.error("Error al enviar la encuesta:", error);

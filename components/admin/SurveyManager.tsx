@@ -130,33 +130,47 @@ export function SurveyManager() {
   const deleteSurvey = async (surveyId: number) => {
     if (!confirm("¿Estás seguro? Se eliminarán la encuesta, preguntas y opciones.")) return;
     try {
+      // Primero obtener los IDs de las preguntas
+      const { data: questionsData } = await supabase
+        .from("questions")
+        .select("id")
+        .eq("survey_id", surveyId);
+
+      const questionIds = questionsData?.map((q: any) => q.id) || [];
+
       // Eliminar en cascada: opciones -> preguntas -> encuesta
-      const { error: optionsError } = await supabase
-        .from("question_options")
-        .delete()
-        .in("question_id", (await supabase
-          .from("questions")
-          .select("id")
-          .eq("survey_id", surveyId)).data?.map((q: any) => q.id) || []);
+      if (questionIds.length > 0) {
+        const { error: optionsError } = await supabase
+          .from("question_options")
+          .delete()
+          .in("question_id", questionIds);
+
+        if (optionsError) console.error("Error eliminando opciones:", optionsError);
+      }
 
       const { error: questionsError } = await supabase
         .from("questions")
         .delete()
         .eq("survey_id", surveyId);
 
+      if (questionsError) console.error("Error eliminando preguntas:", questionsError);
+
       const { error: surveyError } = await supabase
         .from("surveys_config")
         .delete()
         .eq("id", surveyId);
 
-      if (surveyError) throw surveyError;
+      if (surveyError) {
+        console.error("Error eliminando encuesta:", surveyError);
+        throw surveyError;
+      }
 
       // Actualizar estado local
       setSurveys(surveys.filter(s => s.id !== surveyId));
       setSelectedSurvey(null);
       setDbQuestions([]);
       setDbOptions({});
-      alert("✅ Encuesta y todas sus preguntas eliminadas");
+      alert("✅ Encuesta eliminada exitosamente");
     } catch (e) {
       console.error("Error al eliminar encuesta:", e);
       alert("Error al eliminar: " + String(e));

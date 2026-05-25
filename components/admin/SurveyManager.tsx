@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Edit2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Save, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type SurveyConfig = {
@@ -11,14 +11,26 @@ type SurveyConfig = {
   is_active: boolean;
 };
 
-type Question = {
+type LocalQuestion = {
+  id: string; // temporal, generado localmente
+  question_text: string;
+  question_type: "text" | "multiple_choice" | "single_choice";
+  options: LocalOption[];
+};
+
+type LocalOption = {
+  id: string;
+  option_text: string;
+};
+
+type DBQuestion = {
   id: number;
   question_text: string;
   question_type: "text" | "multiple_choice" | "single_choice";
   order_index: number;
 };
 
-type QuestionOption = {
+type DBOption = {
   id: number;
   question_id: number;
   option_text: string;
@@ -26,16 +38,21 @@ type QuestionOption = {
 };
 
 export function SurveyManager() {
+  // Estado para encuestas existentes
   const [surveys, setSurveys] = useState<SurveyConfig[]>([]);
   const [selectedSurvey, setSelectedSurvey] = useState<SurveyConfig | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [dbQuestions, setDbQuestions] = useState<DBQuestion[]>([]);
+  const [dbOptions, setDbOptions] = useState<Record<number, DBOption[]>>({});
+
+  // Estado para crear nueva encuesta localmente
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newSurveyTitle, setNewSurveyTitle] = useState("");
   const [newSurveyDesc, setNewSurveyDesc] = useState("");
-  const [newQuestion, setNewQuestion] = useState("");
-  const [questionType, setQuestionType] = useState<"text" | "multiple_choice" | "single_choice">("text");
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-  const [newOption, setNewOption] = useState("");
-  const [options, setOptions] = useState<QuestionOption[]>([]);
+  const [localQuestions, setLocalQuestions] = useState<LocalQuestion[]>([]);
+  const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
+  const [newQuestionText, setNewQuestionText] = useState("");
+  const [newQuestionType, setNewQuestionType] = useState<"text" | "multiple_choice" | "single_choice">("text");
+  const [newOptionText, setNewOptionText] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -48,11 +65,7 @@ export function SurveyManager() {
     }
   }, [selectedSurvey]);
 
-  useEffect(() => {
-    if (selectedQuestion) {
-      fetchOptions(selectedQuestion.id);
-    }
-  }, [selectedQuestion]);
+  // ===== FUNCIONES PARA ENCUESTAS EXISTENTES =====
 
   const fetchSurveys = async () => {
     try {
@@ -74,174 +87,39 @@ export function SurveyManager() {
 
   const fetchQuestions = async (surveyId: number) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("questions")
         .select("*")
         .eq("survey_id", surveyId)
         .order("order_index");
-      setQuestions(data || []);
-      setSelectedQuestion(null);
-      setOptions([]);
-    } catch (e) {
-      console.error("Error al cargar las preguntas:", e);
-    }
-  };
-
-  const fetchOptions = async (questionId: number) => {
-    try {
-      const { data } = await supabase
-        .from("question_options")
-        .select("*")
-        .eq("question_id", questionId)
-        .order("order_index");
-      setOptions(data || []);
-    } catch (e) {
-      console.error("Error al cargar las opciones:", e);
-    }
-  };
-
-  const createSurvey = async () => {
-    if (!newSurveyTitle.trim()) {
-      alert("Por favor ingresa un título para la encuesta");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("surveys_config")
-        .insert([{
-          title: newSurveyTitle,
-          description: newSurveyDesc,
-          is_active: true
-        }])
-        .select();
 
       if (error) {
-        console.error("Error al crear encuesta:", error);
-        alert("Error: " + error.message);
+        console.error("Error al cargar preguntas:", error);
         return;
       }
 
+      setDbQuestions(data || []);
+
+      // Cargar opciones para cada pregunta
       if (data && data.length > 0) {
-        const newSurvey = data[0];
-        setSurveys([...surveys, newSurvey]);
-        setNewSurveyTitle("");
-        setNewSurveyDesc("");
-        setSelectedSurvey(newSurvey);
-        alert("✅ Encuesta creada exitosamente");
-      }
-    } catch (e) {
-      console.error("Error al crear encuesta:", e);
-      alert("Error: " + String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addQuestion = async () => {
-    if (!selectedSurvey || !newQuestion.trim()) return;
-    setLoading(true);
-    try {
-      const orderIndex = Math.max(...questions.map(q => q.order_index || 0), 0) + 1;
-      const { data, error } = await supabase
-        .from("questions")
-        .insert([{
-          survey_id: selectedSurvey.id,
-          question_text: newQuestion,
-          question_type: questionType,
-          order_index: orderIndex
-        }])
-        .select();
-
-      if (error) {
-        console.error("Error al agregar pregunta:", error);
-        alert("Error: " + error.message);
-        return;
-      }
-
-      if (data && data[0]) {
-        const newQ = data[0];
-        setQuestions([...questions, newQ]);
-        setNewQuestion("");
-        setQuestionType("text");
-        // Seleccionar automáticamente la pregunta recién creada si tiene opciones
-        if (questionType !== "text") {
-          setSelectedQuestion(newQ);
-          setOptions([]);
+        const optionsMap: Record<number, DBOption[]> = {};
+        for (const q of data) {
+          const { data: optionsData } = await supabase
+            .from("question_options")
+            .select("*")
+            .eq("question_id", q.id)
+            .order("order_index");
+          optionsMap[q.id] = optionsData || [];
         }
+        setDbOptions(optionsMap);
       }
     } catch (e) {
-      console.error("Error al agregar pregunta:", e);
-      alert("Error al agregar pregunta: " + e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addOption = async () => {
-    if (!selectedQuestion || !newOption.trim()) return;
-    setLoading(true);
-    try {
-      const orderIndex = Math.max(...options.map(o => o.order_index || 0), 0) + 1;
-      const { data, error } = await supabase
-        .from("question_options")
-        .insert([{
-          question_id: selectedQuestion.id,
-          option_text: newOption,
-          order_index: orderIndex
-        }])
-        .select();
-
-      if (error) {
-        console.error("Error al agregar opción:", error);
-        alert("Error: " + error.message);
-        return;
-      }
-
-      if (data) {
-        setOptions([...options, data[0]]);
-        setNewOption("");
-      }
-    } catch (e) {
-      console.error("Error al agregar opción:", e);
-      alert("Error al agregar opción: " + e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteOption = async (optionId: number) => {
-    if (!confirm("¿Eliminar esta opción?")) return;
-    try {
-      await supabase.from("question_options").delete().eq("id", optionId);
-      setOptions(options.filter(o => o.id !== optionId));
-    } catch (e) {
-      console.error("Error al eliminar la opción:", e);
-    }
-  };
-
-  const deleteQuestion = async (questionId: number) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar esta pregunta?")) return;
-    try {
-      const { error } = await supabase.from("questions").delete().eq("id", questionId);
-      if (error) {
-        alert("Error: " + error.message);
-        return;
-      }
-      setQuestions(questions.filter(q => q.id !== questionId));
-      if (selectedQuestion?.id === questionId) {
-        setSelectedQuestion(null);
-        setOptions([]);
-      }
-      alert("✅ Pregunta eliminada");
-    } catch (e) {
-      console.error("Error al eliminar pregunta:", e);
-      alert("Error: " + String(e));
+      console.error("Error al cargar preguntas:", e);
     }
   };
 
   const deleteSurvey = async (surveyId: number) => {
-    if (!confirm("¿Estás seguro? Se eliminarán la encuesta y todas sus preguntas. Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Estás seguro? Se eliminarán la encuesta y todas sus preguntas.")) return;
     try {
       const { error } = await supabase.from("surveys_config").delete().eq("id", surveyId);
       if (error) {
@@ -250,11 +128,171 @@ export function SurveyManager() {
       }
       setSurveys(surveys.filter(s => s.id !== surveyId));
       setSelectedSurvey(null);
-      setQuestions([]);
+      setDbQuestions([]);
       alert("✅ Encuesta eliminada");
     } catch (e) {
       console.error("Error al eliminar encuesta:", e);
       alert("Error: " + String(e));
+    }
+  };
+
+  const deleteQuestion = async (questionId: number) => {
+    if (!confirm("¿Eliminar esta pregunta?")) return;
+    try {
+      const { error } = await supabase.from("questions").delete().eq("id", questionId);
+      if (error) {
+        alert("Error: " + error.message);
+        return;
+      }
+      setDbQuestions(dbQuestions.filter(q => q.id !== questionId));
+      alert("✅ Pregunta eliminada");
+    } catch (e) {
+      console.error("Error:", e);
+    }
+  };
+
+  // ===== FUNCIONES PARA CREAR NUEVA ENCUESTA LOCALMENTE =====
+
+  const addLocalQuestion = () => {
+    if (!newQuestionText.trim()) {
+      alert("Escribe una pregunta");
+      return;
+    }
+
+    const newQuestion: LocalQuestion = {
+      id: Date.now().toString(),
+      question_text: newQuestionText,
+      question_type: newQuestionType,
+      options: [],
+    };
+
+    setLocalQuestions([...localQuestions, newQuestion]);
+    setNewQuestionText("");
+    setNewQuestionType("text");
+    setEditingQuestion(newQuestion.id);
+  };
+
+  const addOptionToQuestion = (questionId: string) => {
+    if (!newOptionText.trim()) {
+      alert("Escribe una opción");
+      return;
+    }
+
+    setLocalQuestions(
+      localQuestions.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: [...q.options, { id: Date.now().toString(), option_text: newOptionText }],
+            }
+          : q
+      )
+    );
+    setNewOptionText("");
+  };
+
+  const deleteLocalQuestion = (questionId: string) => {
+    setLocalQuestions(localQuestions.filter(q => q.id !== questionId));
+    if (editingQuestion === questionId) {
+      setEditingQuestion(null);
+    }
+  };
+
+  const deleteLocalOption = (questionId: string, optionId: string) => {
+    setLocalQuestions(
+      localQuestions.map((q) =>
+        q.id === questionId
+          ? { ...q, options: q.options.filter(o => o.id !== optionId) }
+          : q
+      )
+    );
+  };
+
+  const saveNewSurvey = async () => {
+    if (!newSurveyTitle.trim()) {
+      alert("Ingresa un título para la encuesta");
+      return;
+    }
+
+    if (localQuestions.length === 0) {
+      alert("Agrega al menos una pregunta");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Crear la encuesta
+      const { data: surveyData, error: surveyError } = await supabase
+        .from("surveys_config")
+        .insert([{
+          title: newSurveyTitle,
+          description: newSurveyDesc,
+          is_active: true,
+        }])
+        .select();
+
+      if (surveyError) {
+        alert("Error: " + surveyError.message);
+        return;
+      }
+
+      const newSurveyId = surveyData[0].id;
+
+      // 2. Insertar preguntas
+      const questionsToInsert = localQuestions.map((q, idx) => ({
+        survey_id: newSurveyId,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        order_index: idx,
+      }));
+
+      const { data: questionsData, error: questionsError } = await supabase
+        .from("questions")
+        .insert(questionsToInsert)
+        .select();
+
+      if (questionsError) {
+        alert("Error: " + questionsError.message);
+        return;
+      }
+
+      // 3. Insertar opciones para cada pregunta
+      const optionsToInsert: any[] = [];
+      questionsData.forEach((question, idx) => {
+        const localQuestion = localQuestions[idx];
+        localQuestion.options.forEach((opt, optIdx) => {
+          optionsToInsert.push({
+            question_id: question.id,
+            option_text: opt.option_text,
+            order_index: optIdx,
+          });
+        });
+      });
+
+      if (optionsToInsert.length > 0) {
+        const { error: optionsError } = await supabase
+          .from("question_options")
+          .insert(optionsToInsert);
+
+        if (optionsError) {
+          alert("Error: " + optionsError.message);
+          return;
+        }
+      }
+
+      // 4. Limpiar estado y recargar
+      alert("✅ ¡Encuesta creada exitosamente!");
+      setIsCreatingNew(false);
+      setNewSurveyTitle("");
+      setNewSurveyDesc("");
+      setLocalQuestions([]);
+      setEditingQuestion(null);
+      fetchSurveys();
+    } catch (e) {
+      console.error("Error:", e);
+      alert("Error: " + String(e));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -265,32 +303,13 @@ export function SurveyManager() {
         <div className="bg-white rounded-lg border border-slate-100 p-5">
           <h3 className="text-sm font-semibold text-slate-900 mb-4">Encuestas</h3>
 
-          {/* Crear Encuesta */}
-          <div className="mb-6 space-y-2">
-            <input
-              type="text"
-              placeholder="Título de la encuesta..."
-              value={newSurveyTitle}
-              onChange={(e) => setNewSurveyTitle(e.target.value)}
-              className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              type="text"
-              placeholder="Descripción (opcional)..."
-              value={newSurveyDesc}
-              onChange={(e) => setNewSurveyDesc(e.target.value)}
-              className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <button
-              onClick={createSurvey}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
-            >
-              <Plus size={14} /> Nueva encuesta
-            </button>
-          </div>
+          <button
+            onClick={() => setIsCreatingNew(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 mb-6"
+          >
+            <Plus size={14} /> Nueva encuesta
+          </button>
 
-          {/* Surveys List */}
           <div className="space-y-2">
             {surveys.map((survey) => (
               <div
@@ -311,7 +330,7 @@ export function SurveyManager() {
                   onClick={() => deleteSurvey(survey.id)}
                   className="w-full text-red-600 hover:text-red-700 text-xs py-1"
                 >
-                  <Trash2 size={13} className="inline mr-1" /> Eliminar encuesta
+                  <Trash2 size={13} className="inline mr-1" /> Eliminar
                 </button>
               </div>
             ))}
@@ -321,65 +340,88 @@ export function SurveyManager() {
 
       {/* Right: Questions */}
       <div className="lg:col-span-2">
-        {selectedSurvey ? (
+        {isCreatingNew ? (
+          // Vista de crear nueva encuesta
           <div className="space-y-5">
-            {/* Panel de crear pregunta */}
+            {/* Información de la encuesta */}
             <div className="bg-white rounded-lg border border-slate-100 p-5">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">Agregar Nueva Pregunta</h3>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Nueva Encuesta</h3>
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-2">Pregunta</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-2">Título</label>
                   <input
                     type="text"
-                    placeholder="Escribe la pregunta..."
-                    value={newQuestion}
-                    onChange={(e) => setNewQuestion(e.target.value)}
+                    placeholder="Ej: Encuesta de Satisfacción"
+                    value={newSurveyTitle}
+                    onChange={(e) => setNewSurveyTitle(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-2">Tipo de respuesta</label>
-                  <select
-                    value={questionType}
-                    onChange={(e) => setQuestionType(e.target.value as any)}
+                  <label className="block text-xs font-medium text-slate-700 mb-2">Descripción (opcional)</label>
+                  <input
+                    type="text"
+                    placeholder="Descripción de la encuesta..."
+                    value={newSurveyDesc}
+                    onChange={(e) => setNewSurveyDesc(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="text">Respuesta de texto libre</option>
-                    <option value="single_choice">Opción única (radio buttons)</option>
-                    <option value="multiple_choice">Opciones múltiples (checkboxes)</option>
-                  </select>
+                  />
                 </div>
-
-                <button
-                  onClick={addQuestion}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  <Plus size={14} /> Agregar pregunta
-                </button>
               </div>
             </div>
 
-            {/* Panel de preguntas existentes */}
+            {/* Agregar preguntas */}
             <div className="bg-white rounded-lg border border-slate-100 p-5">
-              <h3 className="text-sm font-semibold text-slate-900 mb-4">
-                Preguntas: {selectedSurvey.title}
-              </h3>
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Preguntas ({localQuestions.length})</h3>
 
-              {/* Lista de Preguntas */}
+              {/* Formulario para agregar pregunta */}
+              <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-2">Pregunta</label>
+                    <input
+                      type="text"
+                      placeholder="Escribe la pregunta..."
+                      value={newQuestionText}
+                      onChange={(e) => setNewQuestionText(e.target.value)}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-2">Tipo</label>
+                    <select
+                      value={newQuestionType}
+                      onChange={(e) => setNewQuestionType(e.target.value as any)}
+                      className="w-full text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="text">Respuesta de texto</option>
+                      <option value="single_choice">Opción única</option>
+                      <option value="multiple_choice">Opciones múltiples</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={addLocalQuestion}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700"
+                  >
+                    <Plus size={14} /> Agregar pregunta
+                  </button>
+                </div>
+              </div>
+
+              {/* Lista de preguntas agregadas */}
               <div className="space-y-3">
-                {questions.length === 0 ? (
-                  <p className="text-xs text-slate-500">Sin preguntas aún. Crea una arriba.</p>
+                {localQuestions.length === 0 ? (
+                  <p className="text-xs text-slate-500">Sin preguntas aún</p>
                 ) : (
-                  questions.map((q, idx) => (
+                  localQuestions.map((q, idx) => (
                     <div key={q.id} className="p-3 bg-slate-50 rounded-md border border-slate-100">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <p className="text-xs font-medium text-slate-900">
-                            {idx + 1}. {q.question_text}
-                          </p>
+                          <p className="text-xs font-medium text-slate-900">{idx + 1}. {q.question_text}</p>
                           <p className="text-xs text-slate-500 mt-1">
                             {q.question_type === "text" && "Respuesta de texto"}
                             {q.question_type === "single_choice" && "Opción única"}
@@ -387,29 +429,58 @@ export function SurveyManager() {
                           </p>
                         </div>
                         <button
-                          onClick={() => deleteQuestion(q.id)}
+                          onClick={() => deleteLocalQuestion(q.id)}
                           className="ml-3 text-red-600 hover:text-red-700"
-                          title="Eliminar pregunta"
                         >
                           <Trash2 size={14} />
                         </button>
                       </div>
 
-                      {/* Botón para editar opciones */}
                       {(q.question_type === "single_choice" || q.question_type === "multiple_choice") && (
                         <button
-                          onClick={() => {
-                            setSelectedQuestion(q);
-                            fetchOptions(q.id);
-                          }}
+                          onClick={() => setEditingQuestion(editingQuestion === q.id ? null : q.id)}
                           className={`text-xs px-2 py-1 rounded border mt-2 transition-colors ${
-                            selectedQuestion?.id === q.id
+                            editingQuestion === q.id
                               ? "bg-indigo-100 border-indigo-300 text-indigo-700"
                               : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                           }`}
                         >
-                          {selectedQuestion?.id === q.id ? "✓ Editando opciones" : "Agregar opciones"}
+                          {editingQuestion === q.id ? "✓ Editando opciones" : "Agregar opciones"}
                         </button>
+                      )}
+
+                      {editingQuestion === q.id && (
+                        <div className="mt-3 p-3 bg-indigo-50 rounded border border-indigo-200">
+                          <div className="flex gap-2 mb-3">
+                            <input
+                              type="text"
+                              placeholder="Nueva opción..."
+                              value={newOptionText}
+                              onChange={(e) => setNewOptionText(e.target.value)}
+                              className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              onClick={() => addOptionToQuestion(q.id)}
+                              className="px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700"
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            {q.options.map((opt, optIdx) => (
+                              <div key={opt.id} className="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
+                                <p className="text-xs text-slate-900">{optIdx + 1}. {opt.option_text}</p>
+                                <button
+                                  onClick={() => deleteLocalOption(q.id, opt.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))
@@ -417,56 +488,73 @@ export function SurveyManager() {
               </div>
             </div>
 
-            {/* Panel para editar opciones */}
-            {selectedQuestion && (selectedQuestion.question_type === "single_choice" || selectedQuestion.question_type === "multiple_choice") && (
-              <div className="bg-white rounded-lg border border-indigo-200 p-5 bg-indigo-50">
-                <h3 className="text-sm font-semibold text-slate-900 mb-4">
-                  Opciones para: {selectedQuestion.question_text}
-                </h3>
+            {/* Botones de acción */}
+            <div className="flex gap-3">
+              <button
+                onClick={saveNewSurvey}
+                disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                <Save size={16} /> Guardar Encuesta
+              </button>
+              <button
+                onClick={() => {
+                  setIsCreatingNew(false);
+                  setNewSurveyTitle("");
+                  setNewSurveyDesc("");
+                  setLocalQuestions([]);
+                  setEditingQuestion(null);
+                }}
+                className="flex-1 px-4 py-3 bg-slate-200 text-slate-900 text-sm font-medium rounded-lg hover:bg-slate-300"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : selectedSurvey ? (
+          // Vista de encuesta existente
+          <div className="bg-white rounded-lg border border-slate-100 p-5">
+            <h3 className="text-sm font-semibold text-slate-900 mb-4">Preguntas: {selectedSurvey.title}</h3>
 
-                {/* Agregar opción */}
-                <div className="mb-4 flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Nueva opción..."
-                    value={newOption}
-                    onChange={(e) => setNewOption(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && addOption()}
-                    className="flex-1 text-xs px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <button
-                    onClick={addOption}
-                    disabled={loading}
-                    className="px-3 py-2 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-
-                {/* Lista de opciones */}
-                <div className="space-y-2">
-                  {options.length === 0 ? (
-                    <p className="text-xs text-slate-500">Sin opciones aún.</p>
-                  ) : (
-                    options.map((opt, idx) => (
-                      <div key={opt.id} className="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
-                        <p className="text-xs text-slate-900">{idx + 1}. {opt.option_text}</p>
-                        <button
-                          onClick={() => deleteOption(opt.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+            <div className="space-y-3">
+              {dbQuestions.length === 0 ? (
+                <p className="text-xs text-slate-500">Sin preguntas</p>
+              ) : (
+                dbQuestions.map((q, idx) => (
+                  <div key={q.id} className="p-3 bg-slate-50 rounded-md border border-slate-100">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-slate-900">
+                          {idx + 1}. {q.question_text}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {q.question_type === "text" && "Respuesta de texto"}
+                          {q.question_type === "single_choice" && "Opción única"}
+                          {q.question_type === "multiple_choice" && "Opciones múltiples"}
+                        </p>
+                        {dbOptions[q.id] && dbOptions[q.id].length > 0 && (
+                          <div className="mt-2 ml-4 space-y-1">
+                            {dbOptions[q.id].map((opt) => (
+                              <p key={opt.id} className="text-xs text-slate-600">• {opt.option_text}</p>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+                      <button
+                        onClick={() => deleteQuestion(q.id)}
+                        className="ml-3 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-slate-100 p-8 text-center">
-            <p className="text-sm text-slate-500">Selecciona una encuesta para ver y gestionar sus preguntas</p>
+            <p className="text-sm text-slate-500">Selecciona una encuesta o crea una nueva</p>
           </div>
         )}
       </div>

@@ -56,13 +56,19 @@ export function SurveyManager() {
 
   const fetchSurveys = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("surveys_config")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error al cargar encuestas:", error);
+        return;
+      }
+
       setSurveys(data || []);
     } catch (e) {
-      console.error("Error fetching surveys:", e);
+      console.error("Error al cargar encuestas:", e);
     }
   };
 
@@ -95,22 +101,38 @@ export function SurveyManager() {
   };
 
   const createSurvey = async () => {
-    if (!newSurveyTitle.trim()) return;
+    if (!newSurveyTitle.trim()) {
+      alert("Por favor ingresa un título para la encuesta");
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("surveys_config")
-        .insert([{ title: newSurveyTitle, description: newSurveyDesc }])
+        .insert([{
+          title: newSurveyTitle,
+          description: newSurveyDesc,
+          is_active: true
+        }])
         .select();
 
-      if (data) {
-        setSurveys([...surveys, data[0]]);
+      if (error) {
+        console.error("Error al crear encuesta:", error);
+        alert("Error: " + error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const newSurvey = data[0];
+        setSurveys([...surveys, newSurvey]);
         setNewSurveyTitle("");
         setNewSurveyDesc("");
-        setSelectedSurvey(data[0]);
+        setSelectedSurvey(newSurvey);
+        alert("✅ Encuesta creada exitosamente");
       }
     } catch (e) {
-      console.error("Error creating survey:", e);
+      console.error("Error al crear encuesta:", e);
+      alert("Error: " + String(e));
     } finally {
       setLoading(false);
     }
@@ -201,22 +223,38 @@ export function SurveyManager() {
   const deleteQuestion = async (questionId: number) => {
     if (!confirm("¿Estás seguro de que deseas eliminar esta pregunta?")) return;
     try {
-      await supabase.from("questions").delete().eq("id", questionId);
+      const { error } = await supabase.from("questions").delete().eq("id", questionId);
+      if (error) {
+        alert("Error: " + error.message);
+        return;
+      }
       setQuestions(questions.filter(q => q.id !== questionId));
+      if (selectedQuestion?.id === questionId) {
+        setSelectedQuestion(null);
+        setOptions([]);
+      }
+      alert("✅ Pregunta eliminada");
     } catch (e) {
-      console.error("Error deleting question:", e);
+      console.error("Error al eliminar pregunta:", e);
+      alert("Error: " + String(e));
     }
   };
 
   const deleteSurvey = async (surveyId: number) => {
     if (!confirm("¿Estás seguro? Se eliminarán la encuesta y todas sus preguntas. Esta acción no se puede deshacer.")) return;
     try {
-      await supabase.from("surveys_config").delete().eq("id", surveyId);
+      const { error } = await supabase.from("surveys_config").delete().eq("id", surveyId);
+      if (error) {
+        alert("Error: " + error.message);
+        return;
+      }
       setSurveys(surveys.filter(s => s.id !== surveyId));
       setSelectedSurvey(null);
       setQuestions([]);
+      alert("✅ Encuesta eliminada");
     } catch (e) {
-      console.error("Error deleting survey:", e);
+      console.error("Error al eliminar encuesta:", e);
+      alert("Error: " + String(e));
     }
   };
 

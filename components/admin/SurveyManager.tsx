@@ -55,6 +55,7 @@ export function SurveyManager() {
   const [newOptionText, setNewOptionText] = useState("");
   const [loading, setLoading] = useState(false);
   const [copiedSurveyId, setCopiedSurveyId] = useState<number | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetchSurveys();
@@ -218,17 +219,20 @@ export function SurveyManager() {
 
   const saveNewSurvey = async () => {
     if (!newSurveyTitle.trim()) {
-      alert("Ingresa un título para la encuesta");
+      setSaveMessage({ type: "error", text: "❌ Ingresa un título para la encuesta" });
       return;
     }
 
     if (localQuestions.length === 0) {
-      alert("Agrega al menos una pregunta");
+      setSaveMessage({ type: "error", text: "❌ Agrega al menos una pregunta" });
       return;
     }
 
     setLoading(true);
+    setSaveMessage(null);
     try {
+      console.log("1️⃣ Creando encuesta:", newSurveyTitle);
+
       // 1. Crear la encuesta
       const { data: surveyData, error: surveyError } = await supabase
         .from("surveys_config")
@@ -240,13 +244,21 @@ export function SurveyManager() {
         .select();
 
       if (surveyError) {
-        alert("Error: " + surveyError.message);
+        console.error("Error al crear encuesta:", surveyError);
+        setSaveMessage({ type: "error", text: `❌ Error al crear encuesta: ${surveyError.message}` });
+        return;
+      }
+
+      if (!surveyData || surveyData.length === 0) {
+        setSaveMessage({ type: "error", text: "❌ No se creó la encuesta" });
         return;
       }
 
       const newSurveyId = surveyData[0].id;
+      console.log("✅ Encuesta creada con ID:", newSurveyId);
 
       // 2. Insertar preguntas
+      console.log("2️⃣ Insertando", localQuestions.length, "preguntas...");
       const questionsToInsert = localQuestions.map((q, idx) => ({
         survey_id: newSurveyId,
         question_text: q.question_text,
@@ -260,13 +272,17 @@ export function SurveyManager() {
         .select();
 
       if (questionsError) {
-        alert("Error: " + questionsError.message);
+        console.error("Error al crear preguntas:", questionsError);
+        setSaveMessage({ type: "error", text: `❌ Error al crear preguntas: ${questionsError.message}` });
         return;
       }
 
+      console.log("✅ Preguntas creadas:", questionsData?.length);
+
       // 3. Insertar opciones para cada pregunta
+      console.log("3️⃣ Insertando opciones...");
       const optionsToInsert: any[] = [];
-      questionsData.forEach((question, idx) => {
+      questionsData?.forEach((question, idx) => {
         const localQuestion = localQuestions[idx];
         localQuestion.options.forEach((opt, optIdx) => {
           optionsToInsert.push({
@@ -283,22 +299,32 @@ export function SurveyManager() {
           .insert(optionsToInsert);
 
         if (optionsError) {
-          alert("Error: " + optionsError.message);
+          console.error("Error al crear opciones:", optionsError);
+          setSaveMessage({ type: "error", text: `❌ Error al crear opciones: ${optionsError.message}` });
           return;
         }
+        console.log("✅ Opciones creadas:", optionsToInsert.length);
       }
 
       // 4. Limpiar estado y recargar
-      alert("✅ ¡Encuesta creada exitosamente!");
-      setIsCreatingNew(false);
-      setNewSurveyTitle("");
-      setNewSurveyDesc("");
-      setLocalQuestions([]);
-      setEditingQuestion(null);
-      fetchSurveys();
+      console.log("✅ ¡Encuesta completamente creada!");
+      setSaveMessage({
+        type: "success",
+        text: `✅ ¡Encuesta creada! Link: /encuesta/${newSurveyId}`
+      });
+
+      setTimeout(() => {
+        setIsCreatingNew(false);
+        setNewSurveyTitle("");
+        setNewSurveyDesc("");
+        setLocalQuestions([]);
+        setEditingQuestion(null);
+        setSaveMessage(null);
+        fetchSurveys();
+      }, 2000);
     } catch (e) {
       console.error("Error:", e);
-      alert("Error: " + String(e));
+      setSaveMessage({ type: "error", text: `❌ Error: ${String(e)}` });
     } finally {
       setLoading(false);
     }
@@ -495,6 +521,17 @@ export function SurveyManager() {
                 )}
               </div>
             </div>
+
+            {/* Mensaje de estado */}
+            {saveMessage && (
+              <div className={`p-4 rounded-lg text-sm font-medium ${
+                saveMessage.type === "success"
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}>
+                {saveMessage.text}
+              </div>
+            )}
 
             {/* Botones de acción */}
             <div className="flex gap-3">

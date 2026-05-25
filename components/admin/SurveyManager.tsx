@@ -130,40 +130,63 @@ export function SurveyManager() {
   const deleteSurvey = async (surveyId: number) => {
     if (!confirm("¿Estás seguro? Se eliminarán la encuesta, preguntas y opciones.")) return;
     try {
+      console.log("🗑️ Iniciando eliminación de encuesta:", surveyId);
+
       // Primero obtener los IDs de las preguntas
-      const { data: questionsData } = await supabase
+      const { data: questionsData, error: fetchError } = await supabase
         .from("questions")
         .select("id")
         .eq("survey_id", surveyId);
 
+      if (fetchError) {
+        console.error("Error obteniendo preguntas:", fetchError);
+        throw fetchError;
+      }
+
       const questionIds = questionsData?.map((q: any) => q.id) || [];
+      console.log("Preguntas encontradas:", questionIds);
 
       // Eliminar en cascada: opciones -> preguntas -> encuesta
       if (questionIds.length > 0) {
-        const { error: optionsError } = await supabase
+        console.log("Eliminando opciones de preguntas...");
+        const { error: optionsError, count: optionsCount } = await supabase
           .from("question_options")
           .delete()
           .in("question_id", questionIds);
 
-        if (optionsError) console.error("Error eliminando opciones:", optionsError);
+        if (optionsError) {
+          console.error("❌ Error eliminando opciones:", optionsError);
+          alert("Error eliminando opciones: " + optionsError.message);
+          throw optionsError;
+        }
+        console.log("✅ Opciones eliminadas:", optionsCount);
       }
 
-      const { error: questionsError } = await supabase
+      console.log("Eliminando preguntas...");
+      const { error: questionsError, count: questionsCount } = await supabase
         .from("questions")
         .delete()
         .eq("survey_id", surveyId);
 
-      if (questionsError) console.error("Error eliminando preguntas:", questionsError);
+      if (questionsError) {
+        console.error("❌ Error eliminando preguntas:", questionsError);
+        alert("Error eliminando preguntas: " + questionsError.message);
+        throw questionsError;
+      }
+      console.log("✅ Preguntas eliminadas:", questionsCount);
 
-      const { error: surveyError } = await supabase
+      console.log("Eliminando encuesta...");
+      const { error: surveyError, count: surveyCount } = await supabase
         .from("surveys_config")
         .delete()
         .eq("id", surveyId);
 
       if (surveyError) {
-        console.error("Error eliminando encuesta:", surveyError);
+        console.error("❌ Error eliminando encuesta:", surveyError);
+        alert("Error eliminando encuesta: " + surveyError.message);
         throw surveyError;
       }
+      console.log("✅ Encuesta eliminada:", surveyCount);
 
       // Actualizar estado local
       setSurveys(surveys.filter(s => s.id !== surveyId));
@@ -172,8 +195,8 @@ export function SurveyManager() {
       setDbOptions({});
       alert("✅ Encuesta eliminada exitosamente");
     } catch (e) {
-      console.error("Error al eliminar encuesta:", e);
-      alert("Error al eliminar: " + String(e));
+      console.error("❌ Error al eliminar encuesta:", e);
+      alert("❌ Error al eliminar: " + String(e));
     }
   };
 

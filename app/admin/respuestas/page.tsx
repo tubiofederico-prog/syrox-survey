@@ -7,22 +7,31 @@ import { Modal } from "@/components/ui/Modal";
 import { industries } from "@/data/surveyQuestions";
 import { formatDate } from "@/lib/utils";
 import { Eye, X, Trash2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 type SortField = "date" | "name" | "company";
+
+type Question = {
+  id: number;
+  question_text: string;
+  question_type: string;
+};
+
 type SurveyResponse = {
   id: string;
   created_at: string;
-  q1_reason?: string;
-  q2_confidence?: string;
-  q3_decision?: string;
-  q4_doubt?: string;
-  q5_improvement?: string;
+  name?: string;
+  company?: string;
+  email?: string;
   industry?: string;
-  [key: string]: any;
+  comment?: string;
+  survey_id?: number;
+  answers: Record<string, string>;
 };
 
 export default function RespuestasPage() {
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
+  const [questions, setQuestions] = useState<Record<number, Question[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("");
@@ -33,28 +42,56 @@ export default function RespuestasPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const fetchSurveys = async () => {
+    const fetchResponses = async () => {
       try {
-        const { supabase } = await import("@/lib/supabase");
         const { data, error } = await supabase
-          .from("surveys")
+          .from("survey_responses")
           .select("*")
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setResponses(data || []);
+
+        const responsesData = data || [];
+        setResponses(responsesData);
+
+        // Cargar preguntas para cada survey
+        const surveyIds = Array.from(new Set(responsesData.map((r) => r.survey_id)));
+        const questionsMap: Record<number, Question[]> = {};
+
+        for (const surveyId of surveyIds) {
+          if (surveyId) {
+            const { data: questionsData } = await supabase
+              .from("questions")
+              .select("id, question_text, question_type")
+              .eq("survey_id", surveyId)
+              .order("order_index");
+
+            questionsMap[surveyId] = questionsData || [];
+          }
+        }
+
+        setQuestions(questionsMap);
       } catch (e) {
-        console.error("Error fetching surveys:", e);
+        console.error("Error fetching responses:", e);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSurveys();
+    fetchResponses();
   }, []);
 
   const motivos = Array.from(
-    new Set(responses.map((r) => r.q1_reason).filter(Boolean))
+    new Set(
+      responses
+        .map((r) => {
+          if (r.answers && Object.keys(r.answers).length > 0) {
+            return Object.values(r.answers)[0];
+          }
+          return undefined;
+        })
+        .filter(Boolean)
+    )
   ).sort();
 
   const filteredResponses = useMemo(() => {
@@ -75,7 +112,12 @@ export default function RespuestasPage() {
     }
 
     if (selectedMotivo) {
-      filtered = filtered.filter((r) => r.q1_reason === selectedMotivo);
+      filtered = filtered.filter((r) => {
+        if (r.answers && Object.keys(r.answers).length > 0) {
+          return Object.values(r.answers)[0] === selectedMotivo;
+        }
+        return false;
+      });
     }
 
     filtered.sort((a, b) => {
@@ -110,12 +152,11 @@ export default function RespuestasPage() {
 
     setIsDeleting(true);
     try {
-      const { supabase } = await import("@/lib/supabase");
-      await supabase.from("surveys").delete().neq("id", -1);
+      await supabase.from("survey_responses").delete().neq("id", "");
       setResponses([]);
       setShowDeleteConfirm(false);
     } catch (e) {
-      console.error("Error deleting surveys:", e);
+      console.error("Error deleting responses:", e);
     } finally {
       setIsDeleting(false);
     }
@@ -276,7 +317,9 @@ export default function RespuestasPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-xs bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 px-3 py-1.5 rounded-full font-medium">
-                          {response.q1_reason || "—"}
+                          {response.answers && Object.keys(response.answers).length > 0
+                            ? Object.values(response.answers)[0]
+                            : "—"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -347,46 +390,20 @@ export default function RespuestasPage() {
                 Respuestas de la encuesta
               </h3>
               <div className="space-y-4">
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    ¿Qué te hizo elegir SyroxTech?
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {selectedDetailData.q1_reason}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    ¿Qué generó más confianza?
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {selectedDetailData.q2_confidence}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    Factor más importante para decidir
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {selectedDetailData.q3_decision}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    Principal duda antes de decidir
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {selectedDetailData.q4_doubt}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">
-                    Qué mejoraría del proceso
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {selectedDetailData.q5_improvement}
-                  </p>
-                </div>
+                {selectedDetailData.survey_id && questions[selectedDetailData.survey_id] ? (
+                  questions[selectedDetailData.survey_id].map((question) => (
+                    <div key={question.id}>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide">
+                        {question.question_text}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        {selectedDetailData.answers?.[question.id] || "—"}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500">No hay preguntas disponibles</p>
+                )}
               </div>
             </div>
 

@@ -16,7 +16,7 @@ export default function ExportarPage() {
       try {
         const { supabase } = await import("@/lib/supabase");
         const { count } = await supabase
-          .from("surveys")
+          .from("survey_responses")
           .select("*", { count: "exact", head: true });
         setTotalResponses(count || 0);
       } catch (e) {
@@ -31,26 +31,31 @@ export default function ExportarPage() {
 
   const handleExportCSV = async () => {
     const { supabase } = await import("@/lib/supabase");
-    const { data } = await supabase.from("surveys").select("*");
+    const { data } = await supabase.from("survey_responses").select("*");
 
     if (!data) return;
 
-    const csv = [
-      ["Fecha", "Nombre", "Email", "Empresa", "Rubro", "Q1", "Q2", "Q3", "Q4", "Q5", "Comentario"],
-      ...data.map((row: any) => [
-        row.created_at,
-        row.name,
-        row.email,
-        row.company,
-        row.industry,
-        row.q1_reason,
-        row.q2_confidence,
-        row.q3_decision,
-        row.q4_doubt,
-        row.q5_improvement,
-        row.comment,
-      ]),
-    ]
+    // Collect all unique question IDs from all responses
+    const allQuestionIds = new Set<string>();
+    data.forEach((row: any) => {
+      if (row.answers) {
+        Object.keys(row.answers).forEach((qId) => allQuestionIds.add(qId));
+      }
+    });
+    const questionIds = Array.from(allQuestionIds).sort();
+
+    const headers = ["Fecha", "Nombre", "Email", "Empresa", "Rubro", ...questionIds.map((id) => `Pregunta ${id}`), "Comentario"];
+    const rows = data.map((row: any) => [
+      row.created_at,
+      row.name,
+      row.email,
+      row.company,
+      row.industry,
+      ...questionIds.map((qId) => row.answers?.[qId] || ""),
+      row.comment,
+    ]);
+
+    const csv = [headers, ...rows]
       .map((row) => row.map((cell) => `"${cell || ""}"`).join(","))
       .join("\n");
 
@@ -58,7 +63,7 @@ export default function ExportarPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `surveys-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `survey-responses-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
 
     const now = new Date().toLocaleDateString("es-ES", {

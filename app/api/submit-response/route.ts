@@ -13,44 +13,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create response record with all info
+    // Create response record for survey_responses table
     const responseData: Record<string, any> = {
-      name: name || "Sin nombre",
-      company: company || "",
-      industry: industry || "",
-      email: email || "",
-      comment: comment || "",
-      // Add default values for all required columns
-      q1_reason: "",
-      q2_confidence: "",
-      q3_decision: "",
-      q4_doubt: "",
-      q5_improvement: "",
+      survey_id,
+      name: name || null,
+      company: company || null,
+      email: email || null,
+      industry: industry || null,
+      comment: comment || null,
+      answers: answers || {},
     };
 
-    // Map answers to the expected schema
-    if (answers && Object.keys(answers).length > 0) {
-      const answerArray = Object.entries(answers);
-
-      // Map answers to q columns
-      const qColumns = ["q1_reason", "q2_confidence", "q3_decision"];
-      answerArray.forEach(([qId, answer], idx) => {
-        if (idx < qColumns.length) {
-          responseData[qColumns[idx]] = String(answer);
-        }
-      });
-
-      // Store all answers for reference if comment not provided
-      if (!comment) {
-        const answersStr = Object.entries(answers)
-          .map(([qId, answer]) => `Q${qId}: ${answer}`)
-          .join("; ");
-        responseData.comment = answersStr;
-      }
-    }
-
     const { data, error } = await supabase
-      .from("surveys")
+      .from("survey_responses")
       .insert([responseData])
       .select();
 

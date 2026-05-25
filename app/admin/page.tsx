@@ -14,7 +14,7 @@ type SurveyData = {
   industry?: string;
   email?: string;
   comment?: string;
-  [key: string]: any;
+  answers?: Record<string, string>;
 };
 
 export default function DashboardPage() {
@@ -25,7 +25,7 @@ export default function DashboardPage() {
     const fetchSurveys = async () => {
       try {
         const { supabase } = await import("@/lib/supabase");
-        const { data } = await supabase.from("surveys").select("*");
+        const { data } = await supabase.from("survey_responses").select("*");
         setSurveys(data || []);
       } catch (e) {
         console.error("Error al cargar las respuestas:", e);
@@ -58,12 +58,14 @@ export default function DashboardPage() {
     if (surveys.length === 0) return { value: "—", percentage: "0%" };
 
     const allAnswers: Record<string, number> = {};
-    surveys.forEach((s: any) => {
-      Object.keys(s).forEach((key) => {
-        if (key.startsWith("answer_") && s[key]) {
-          allAnswers[s[key]] = (allAnswers[s[key]] || 0) + 1;
-        }
-      });
+    surveys.forEach((s) => {
+      if (s.answers && Object.keys(s.answers).length > 0) {
+        Object.values(s.answers).forEach((answer) => {
+          if (answer) {
+            allAnswers[answer] = (allAnswers[answer] || 0) + 1;
+          }
+        });
+      }
     });
 
     const sorted = Object.entries(allAnswers).sort((a, b) => b[1] - a[1]);

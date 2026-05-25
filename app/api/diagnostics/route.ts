@@ -8,7 +8,7 @@ export async function GET() {
       supabase.from("surveys_config").select("*"),
       supabase.from("questions").select("*"),
       supabase.from("question_options").select("*"),
-      supabase.from("surveys").select("*"),
+      supabase.from("survey_responses").select("*"),
     ]);
 
     return NextResponse.json(
@@ -31,7 +31,7 @@ export async function GET() {
             data: options.data || [],
             error: options.error,
           },
-          surveys_responses: {
+          survey_responses: {
             count: responses.data?.length || 0,
             data: responses.data || [],
             error: responses.error,

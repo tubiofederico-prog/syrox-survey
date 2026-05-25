@@ -1,7 +1,9 @@
 import { SurveyForm } from "@/components/survey/SurveyForm";
 import { Sparkles } from "lucide-react";
 
-export default function EncuestaPage({ params }: { params: { id: string } }) {
+export default async function EncuestaPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50 to-violet-50 py-16 px-4">
       {/* Decorative background elements */}
@@ -29,7 +31,7 @@ export default function EncuestaPage({ params }: { params: { id: string } }) {
 
         {/* Form Container */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 md:p-10">
-          <SurveyForm surveyId={parseInt(params.id)} />
+          <SurveyForm surveyId={parseInt(id)} />
         </div>
 
         {/* Footer */}
